@@ -346,16 +346,14 @@ class EchologClient<T extends EventMetadata = EventMetadata> {
    */
   private setupConsoleCapture(): void {
     if (typeof console !== 'undefined') {
-      const consoleMethods = ['log', 'info', 'warn', 'error', 'debug'];
+      const consoleMethods = ['log', 'info', 'warn', 'error', 'debug'] as const;
       
       consoleMethods.forEach((method) => {
         this.originalConsole[method] = console[method];
         
         console[method] = (...args: any[]) => {
-          // Call the original console method
           this.originalConsole[method](...args);
           
-          // Map console levels to log levels
           const levelMap: Record<string, LogLevel> = {
             log: 'info',
             info: 'info',
@@ -364,12 +362,11 @@ class EchologClient<T extends EventMetadata = EventMetadata> {
             debug: 'debug',
           };
           
-          // Capture as a console event
           const consoleEvent: ConsoleEvent = {
             level: levelMap[method],
             message: args.map(arg => stringifyArg(arg)).join(' '),
             console: {
-              level: method as any,
+              level: method,
               args: args.map(arg => stringifyArg(arg)),
             },
             session: this.sessionId ? {
@@ -382,7 +379,7 @@ class EchologClient<T extends EventMetadata = EventMetadata> {
         };
       });
     }
-  }
+}
 
   /**
    * Sets up network request capture using XHR and fetch API
