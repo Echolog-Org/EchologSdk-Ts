@@ -1,11 +1,16 @@
 {
   "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": "src",
+    "target": "ES6",
+    "module": "CommonJS",
+    "outDir": "./dist", // Output compiled files to dist/
+    "rootDir": "./src", // Treat src/ as the root for compilation
+    "declaration": true, // Generate .d.ts files
+    "emitDeclarationOnly": false, // Generate both .js and .d.ts
     "strict": true,
     "esModuleInterop": true,
-    "moduleResolution": "node",
-    "resolveJsonModule": true,
-    "declaration": true
-  }
+    "skipLibCheck": true,
+    "moduleResolution": "node" // Ensure Node.js-style module resolution
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

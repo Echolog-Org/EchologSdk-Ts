@@ -1,9 +1,12 @@
 {
   "name": "echolog-ts",
-  "version": "1.0.0",
-  "main": "index.js",
+  "version": "1.1.8",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "test": "jest --config src/core/jest.config.ts"
   },
   "keywords": [],
   "author": "",
@@ -18,9 +21,13 @@
     "@types/node": "^22.13.10",
     "eslint": "^9.22.0",
     "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
     "prettier": "^3.5.3",
     "ts-jest": "^29.2.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.2"
-  }
+  },
+  "files": [
+    "dist/**/*"
+  ]
 }

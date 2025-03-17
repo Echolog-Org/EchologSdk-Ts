@@ -60,3 +60,50 @@ export function getBrowserName(): string {
 
   return "unknown";
 }
+
+
+/**
+ * Transform JSON for PostgreSQL compatibility
+ * @param obj The object to transform
+ * @returns A transformed object safe for PostgreSQL
+ */
+export function transformJsonForServer<T>(obj: T): T {
+  if (obj === undefined) {
+    return null as any;
+  }
+
+  if (obj === null) {
+    return obj;
+  }
+
+  // Handle arrays
+  if (Array.isArray(obj)) {
+    // Return null for empty arrays (PostgreSQL preference)
+    if (obj.length === 0) {
+      return null as any;
+    }
+    return obj.map(transformJsonForServer) as any;
+  }
+
+  // Handle objects
+  if (typeof obj === 'object') {
+    // Return null for empty objects
+    if (Object.keys(obj).length === 0) {
+      return null as any;
+    }
+    
+    const result: Record<string, any> = {};
+    
+    for (const [key, value] of Object.entries(obj)) {
+      // Fix field name if needed
+      const fixedKey = key === 'user' ? 'user_data' : key;
+      
+      // Transform the value recursively
+      result[fixedKey] = transformJsonForServer(value);
+    }
+    
+    return result as T;
+  }
+
+  return obj;
+}
