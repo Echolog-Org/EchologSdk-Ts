@@ -42,11 +42,13 @@ function shouldCaptureRequest(url, apiUrl) {
  * @returns A UUID v4 format string
  */
 function generateUniqueId() {
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        const v = c === "x" ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-    });
+    try {
+        return `log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    }
+    catch (error) {
+        console.warn("Unique ID generation failed", error);
+        return `fallback-${Math.random().toString(36).substr(2, 9)}`;
+    }
 }
 /**
  * Detects the current browser name
@@ -74,32 +76,25 @@ function getBrowserName() {
  * @returns A transformed object safe for PostgreSQL
  */
 function transformJsonForServer(obj) {
-    if (obj === undefined) {
-        return null;
-    }
-    if (obj === null) {
+    if (obj === undefined || obj === null)
         return obj;
-    }
-    // Handle arrays
     if (Array.isArray(obj)) {
-        // Return null for empty arrays (PostgreSQL preference)
-        if (obj.length === 0) {
-            return null;
-        }
         return obj.map(transformJsonForServer);
     }
-    // Handle objects
-    if (typeof obj === 'object') {
-        // Return null for empty objects
-        if (Object.keys(obj).length === 0) {
-            return null;
-        }
+    if (typeof obj === "object") {
         const result = {};
         for (const [key, value] of Object.entries(obj)) {
-            // Fix field name if needed
-            const fixedKey = key === 'user' ? 'user_data' : key;
-            // Transform the value recursively
-            result[fixedKey] = transformJsonForServer(value);
+            const fixedKey = key === "user" ? "user_data" : key;
+            // Only preserve 'level' at the root level, remove it from nested objects
+            if (key === "level" && typeof value === "string" && Object.keys(obj).includes("id")) {
+                result[fixedKey] = value; // Preserve 'level' if this is a root LogEvent (has 'id')
+            }
+            else if (key === "level" && typeof value === "string") {
+                continue; // Skip 'level' in nested objects
+            }
+            else if (value !== undefined) {
+                result[fixedKey] = transformJsonForServer(value);
+            }
         }
         return result;
     }

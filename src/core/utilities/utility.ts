@@ -1,3 +1,5 @@
+import { EventMetadata, LogEvent, LogLevel } from "../types";
+
 /**
  * Utility method to convert various argument types to strings
  * @param arg The argument to stringify
@@ -35,12 +37,14 @@ export function shouldCaptureRequest(url: string, apiUrl: string): boolean {
  * @returns A UUID v4 format string
  */
 export function generateUniqueId(): string {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+  try {
+    return `log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  } catch (error) {
+    console.warn("Unique ID generation failed", error);
+    return `fallback-${Math.random().toString(36).substr(2, 9)}`;
+  }
 }
+
 
 /**
  * Detects the current browser name
@@ -68,42 +72,67 @@ export function getBrowserName(): string {
  * @returns A transformed object safe for PostgreSQL
  */
 export function transformJsonForServer<T>(obj: T): T {
-  if (obj === undefined) {
-    return null as any;
-  }
+  if (obj === undefined || obj === null) return obj as any;
 
-  if (obj === null) {
-    return obj;
-  }
-
-  // Handle arrays
   if (Array.isArray(obj)) {
-    // Return null for empty arrays (PostgreSQL preference)
-    if (obj.length === 0) {
-      return null as any;
-    }
     return obj.map(transformJsonForServer) as any;
   }
 
-  // Handle objects
-  if (typeof obj === 'object') {
-    // Return null for empty objects
-    if (Object.keys(obj).length === 0) {
-      return null as any;
-    }
-    
+  if (typeof obj === "object") {
     const result: Record<string, any> = {};
-    
+
     for (const [key, value] of Object.entries(obj)) {
-      // Fix field name if needed
-      const fixedKey = key === 'user' ? 'user_data' : key;
-      
-      // Transform the value recursively
-      result[fixedKey] = transformJsonForServer(value);
+      const fixedKey = key === "user" ? "user_data" : key;
+
+      // Only preserve 'level' at the root level, remove it from nested objects
+      if (key === "level" && typeof value === "string" && Object.keys(obj).includes("id")) {
+        result[fixedKey] = value; // Preserve 'level' if this is a root LogEvent (has 'id')
+      } else if (key === "level" && typeof value === "string") {
+        continue; // Skip 'level' in nested objects
+      } else if (value !== undefined) {
+        result[fixedKey] = transformJsonForServer(value);
+      }
     }
-    
     return result as T;
   }
 
   return obj;
+}
+
+
+export function createLogEvent<T extends EventMetadata = EventMetadata>(
+  overrides: Partial<LogEvent<T>> = {}
+): LogEvent<T> {
+  return {
+    id: generateUniqueId(),
+    timestamp: new Date().toISOString(),
+    service_name: '',
+    instance_id: null,
+    level: LogLevel.INFO,
+    message: '',
+    context: null,
+    thread_id: null,
+    file: null,
+    line: null,
+    function: null,
+    trace_id: null,
+    span_id: null,
+    parent_span_id: null,
+    project_id: '',
+    duration_ms: null,
+    error_type: null,
+    stack_trace: null,
+    user_data: null,
+    root_cause: null,
+    system_metrics: null,
+    code_location: null,
+    session: null,
+    error_details: null,
+    metadata: null,
+    tags: null,
+    exception: null,
+    network: null,
+    console: null,
+    ...overrides, 
+  };
 }
