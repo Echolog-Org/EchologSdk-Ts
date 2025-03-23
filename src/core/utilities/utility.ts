@@ -38,7 +38,8 @@ export function shouldCaptureRequest(url: string, apiUrl: string): boolean {
  */
 export function generateUniqueId(): string {
   try {
-    return `log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    //lets use uuid
+    return require("uuid").v4();
   } catch (error) {
     console.warn("Unique ID generation failed", error);
     return `fallback-${Math.random().toString(36).substr(2, 9)}`;

@@ -123,13 +123,13 @@ export class EchologClient<T extends EventMetadata = EventMetadata> {
       sampleRate: 1,
       flushInterval: 5000,
       environment: 'production',
-      ...options, // Spread last to allow user-defined options to override defaults
+      ...options, 
     };
 
-    // Ensure critical properties are always set (use nullish coalescing `??`)
+
     this.apiKey = options.apiKey;
     this.projectId = options.projectId;
-    this.apiUrl = options.apiUrl ?? 'http://localhost:8080/events';
+    this.apiUrl = options.apiUrl ?? 'https://api.echolog.xyz/events';
     this.environment = options.environment ?? 'production';
     this.serviceName = options.serviceName;
 
@@ -388,6 +388,17 @@ export class EchologClient<T extends EventMetadata = EventMetadata> {
         console.debug('[Echolog] Flush error details:', error);
       }
     }
+  }
+  /**
+   * startSession
+   * @param {string} userId - The user ID.
+   */
+
+  public startSession(): void {
+    this.sessionManager.startSession();
+  }
+  public endSession(): void {
+    this.sessionManager.endSession();
   }
 
   /**

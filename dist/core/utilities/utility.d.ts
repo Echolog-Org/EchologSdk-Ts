@@ -1,3 +1,4 @@
+import { EventMetadata, LogEvent } from "../types";
 /**
  * Utility method to convert various argument types to strings
  * @param arg The argument to stringify
@@ -24,3 +25,4 @@ export declare function getBrowserName(): string;
  * @returns A transformed object safe for PostgreSQL
  */
 export declare function transformJsonForServer<T>(obj: T): T;
+export declare function createLogEvent<T extends EventMetadata = EventMetadata>(overrides?: Partial<LogEvent<T>>): LogEvent<T>;

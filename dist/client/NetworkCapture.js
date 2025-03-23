@@ -12,7 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.NetworkCapture = void 0;
 // src/client/NetworkCapture.ts
 const types_1 = require("../core/types");
-const utitiliy_1 = require("../core/utitilites/utitiliy"); // Fixed the import path
+const utility_1 = require("../core/utilities/utility"); // Fixed the import path
 class NetworkCapture {
     constructor(eventManager, sessionManager, serviceName, // Add serviceName to the constructor
     apiUrl, options) {
@@ -63,11 +63,11 @@ class NetworkCapture {
             }
             this.__echolog.startTime = Date.now();
             const handleLoadEnd = () => {
-                if (!(0, utitiliy_1.shouldCaptureRequest)(this.__echolog.url, that.apiUrl))
+                if (!(0, utility_1.shouldCaptureRequest)(this.__echolog.url, that.apiUrl))
                     return;
                 const duration = Date.now() - this.__echolog.startTime;
                 that.eventManager.captureEvent({
-                    id: (0, utitiliy_1.generateUniqueId)(),
+                    id: (0, utility_1.generateUniqueId)(),
                     timestamp: new Date().toISOString(),
                     service_name: that.serviceName, // Use the serviceName property directly
                     level: this.status >= 400 ? types_1.LogLevel.ERROR : types_1.LogLevel.INFO,
@@ -96,14 +96,14 @@ class NetworkCapture {
                 const method = ((init === null || init === void 0 ? void 0 : init.method) || 'GET').toUpperCase();
                 const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
                 const isInternalRequest = url === that.apiUrl || url.includes(that.apiUrl);
-                if (isInternalRequest || !(0, utitiliy_1.shouldCaptureRequest)(url, that.apiUrl)) {
+                if (isInternalRequest || !(0, utility_1.shouldCaptureRequest)(url, that.apiUrl)) {
                     return that.originalFetch.apply(this, [input, init]);
                 }
                 try {
                     const response = yield that.originalFetch.apply(this, [input, init]);
                     const duration = Date.now() - startTime;
                     that.eventManager.captureEvent({
-                        id: (0, utitiliy_1.generateUniqueId)(),
+                        id: (0, utility_1.generateUniqueId)(),
                         timestamp: new Date().toISOString(),
                         service_name: that.serviceName, // Use the serviceName property directly
                         level: response.status >= 400 ? types_1.LogLevel.ERROR : types_1.LogLevel.INFO,

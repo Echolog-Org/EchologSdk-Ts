@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ConsoleCapture = void 0;
 // src/client/ConsoleCapture.ts
 const types_1 = require("../core/types");
-const utitiliy_1 = require("../core/utitilites/utitiliy");
+const utility_1 = require("../core/utilities/utility");
 class ConsoleCapture {
     constructor(eventManager, sessionManager, options) {
         this.originalConsole = {};
@@ -28,11 +28,11 @@ class ConsoleCapture {
                 var _a, _b;
                 (_b = (_a = this.originalConsole)[method]) === null || _b === void 0 ? void 0 : _b.call(_a, ...args);
                 this.eventManager.captureEvent({
-                    id: (0, utitiliy_1.generateUniqueId)(),
+                    id: (0, utility_1.generateUniqueId)(),
                     timestamp: new Date().toISOString(),
                     service_name: this.eventManager['client']['serviceName'],
                     level: levelMap[method],
-                    message: args.map(utitiliy_1.stringifyArg).join(' '),
+                    message: args.map(utility_1.stringifyArg).join(' '),
                     code_location: {
                         file: '',
                         line: 0,

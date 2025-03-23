@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.EventManager = void 0;
 // src/client/EventManager.ts
 const types_1 = require("../core/types");
-const utitiliy_1 = require("../core/utitilites/utitiliy");
+const utility_1 = require("../core/utilities/utility");
 class EventManager {
     constructor(client, sessionManager, options, eventSender) {
         this.eventQueue = [];
@@ -22,12 +22,12 @@ class EventManager {
     }
     captureEvent(event) {
         var _a, _b, _c;
-        if (this.eventSender.isSendingLogs())
+        if (this.eventSender.isSendingLogsActive())
             return null;
         if ((_a = event.message) === null || _a === void 0 ? void 0 : _a.includes("[Echolog Debug]"))
             return null;
         const completeEvent = {
-            id: event.id || (0, utitiliy_1.generateUniqueId)(),
+            id: event.id || (0, utility_1.generateUniqueId)(),
             timestamp: event.timestamp || new Date().toISOString(),
             service_name: event.service_name || this.client['serviceName'],
             level: event.level || types_1.LogLevel.INFO,
@@ -62,7 +62,7 @@ class EventManager {
         };
         if (typeof navigator !== 'undefined') {
             completeEvent.metadata = Object.assign(Object.assign({}, (completeEvent.metadata || {})), { browser: {
-                    name: (0, utitiliy_1.getBrowserName)(),
+                    name: (0, utility_1.getBrowserName)(),
                     userAgent: navigator.userAgent,
                 } });
         }
@@ -86,13 +86,13 @@ class EventManager {
     }
     captureException(error, options = {}) {
         var _a;
-        if (this.eventSender.isSendingLogs())
+        if (this.eventSender.isSendingLogsActive())
             return '';
         const errorObject = error instanceof Error ? error : new Error(String(error));
         if ((_a = errorObject.stack) === null || _a === void 0 ? void 0 : _a.includes('EchologClient')) {
             return '';
         }
-        const eventId = (0, utitiliy_1.generateUniqueId)();
+        const eventId = (0, utility_1.generateUniqueId)();
         const timestamp = new Date().toISOString();
         const event = {
             id: eventId,
@@ -135,9 +135,9 @@ class EventManager {
         return this.captureEvent(event) || '';
     }
     captureMessage(message, options = {}) {
-        if (this.eventSender.isSendingLogs())
+        if (this.eventSender.isSendingLogsActive())
             return '';
-        const eventId = (0, utitiliy_1.generateUniqueId)();
+        const eventId = (0, utility_1.generateUniqueId)();
         const timestamp = new Date().toISOString();
         const event = {
             id: eventId,
@@ -221,7 +221,7 @@ class EventManager {
         }
     }
     debugLog(message, data) {
-        if (this.options.debug && !this.eventSender.isSendingLogs()) {
+        if (this.options.debug && !this.eventSender.isSendingLogsActive()) {
             if (message.includes("[Echolog Debug]"))
                 return;
             const timestamp = new Date().toISOString();

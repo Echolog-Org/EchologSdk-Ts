@@ -1,4 +1,4 @@
-import { LogEvent, EchologOptions, EventMetadata, LogLevel, UserData } from '../core/types';
+import { LogEvent, EchologOptions, EventMetadata, LogLevel, UserData, Breadcrumb } from '../core/types';
 import { EventSender } from './EventSender';
 import { EchologClient } from './client';
 import { SessionManager } from './SessionManager';
@@ -23,6 +23,7 @@ export declare class EventManager<T extends EventMetadata = EventMetadata> {
         user?: UserData;
         metadata?: T;
         tags?: Record<string, string>;
+        breadcrumbs?: Breadcrumb<T>[] | null;
     }): string;
     flush(sync?: boolean): void;
     destroy(): void;

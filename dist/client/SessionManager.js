@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SessionManager = void 0;
 // src/client/SessionManager.ts
 const types_1 = require("../core/types");
-const utitiliy_1 = require("../core/utitilites/utitiliy");
+const utility_1 = require("../core/utilities/utility");
 class SessionManager {
     constructor(serviceName) {
         this.serviceName = serviceName;
@@ -14,10 +14,10 @@ class SessionManager {
     }
     startSession() {
         var _a;
-        this.sessionId = (0, utitiliy_1.generateUniqueId)();
+        this.sessionId = (0, utility_1.generateUniqueId)();
         this.sessionStartTime = new Date();
         (_a = this.eventManager) === null || _a === void 0 ? void 0 : _a.captureEvent({
-            id: (0, utitiliy_1.generateUniqueId)(),
+            id: (0, utility_1.generateUniqueId)(),
             timestamp: new Date().toISOString(),
             service_name: this.serviceName,
             level: types_1.LogLevel.INFO,
@@ -36,7 +36,7 @@ class SessionManager {
         const sessionEndTime = new Date();
         const sessionDuration = sessionEndTime.getTime() - this.sessionStartTime.getTime();
         (_a = this.eventManager) === null || _a === void 0 ? void 0 : _a.captureEvent({
-            id: (0, utitiliy_1.generateUniqueId)(),
+            id: (0, utility_1.generateUniqueId)(),
             timestamp: new Date().toISOString(),
             service_name: this.serviceName,
             level: types_1.LogLevel.INFO,

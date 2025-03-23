@@ -76,6 +76,13 @@ export interface ConsoleDetails {
     level: ConsoleLevel;
     args: string[];
 }
+export interface Breadcrumb<T = any> {
+    id: string;
+    timestamp: string;
+    message: string;
+    category?: string;
+    metadata?: T;
+}
 export interface LogEvent<T extends EventMetadata = EventMetadata> {
     id: string;
     timestamp: string;
@@ -106,6 +113,7 @@ export interface LogEvent<T extends EventMetadata = EventMetadata> {
     exception: Exception | null;
     network: NetworkDetails | null;
     console: ConsoleDetails | null;
+    breadcrumbs?: Breadcrumb<T>[];
 }
 export interface NetworkEvent extends LogEvent {
     network: NetworkDetails;
@@ -239,4 +247,31 @@ export interface EchologOptions<T extends EventMetadata = EventMetadata> {
      * @default true
      */
     includeBrowserMetadata?: boolean;
+    /**
+     * Maximum number of events to store offline.
+     * Optional, defaults to 100.
+     * Maps to Option<usize> on the server.
+     * @default 100
+     */
+    maxOfflineEvents?: number;
+    /**
+     * Maximum number of retry attempts.
+     * Optional, defaults to 3.
+     * @default 3
+     */
+    retryAttempts?: number;
+    /**
+     * Maximum number of breadcrumbs to store in memory.
+     * Optional, defaults to 20.
+     * Maps to Option<usize> on the server.
+     * @default 20
+     */
+    maxBreadcrumbs?: number;
+    /**
+     * Whether to enable breadcrumb capturing.
+     * Optional, defaults to true.
+     * Maps to Option<bool> on the server.
+     * @default true
+     */
+    enableBreadcrumbs?: boolean;
 }

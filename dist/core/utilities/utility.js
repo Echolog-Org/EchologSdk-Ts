@@ -5,6 +5,8 @@ exports.shouldCaptureRequest = shouldCaptureRequest;
 exports.generateUniqueId = generateUniqueId;
 exports.getBrowserName = getBrowserName;
 exports.transformJsonForServer = transformJsonForServer;
+exports.createLogEvent = createLogEvent;
+const types_1 = require("../types");
 /**
  * Utility method to convert various argument types to strings
  * @param arg The argument to stringify
@@ -43,7 +45,8 @@ function shouldCaptureRequest(url, apiUrl) {
  */
 function generateUniqueId() {
     try {
-        return `log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        //lets use uuid
+        return require("uuid").v4();
     }
     catch (error) {
         console.warn("Unique ID generation failed", error);
@@ -99,4 +102,7 @@ function transformJsonForServer(obj) {
         return result;
     }
     return obj;
+}
+function createLogEvent(overrides = {}) {
+    return Object.assign({ id: generateUniqueId(), timestamp: new Date().toISOString(), service_name: '', instance_id: null, level: types_1.LogLevel.INFO, message: '', context: null, thread_id: null, file: null, line: null, function: null, trace_id: null, span_id: null, parent_span_id: null, project_id: '', duration_ms: null, error_type: null, stack_trace: null, user_data: null, root_cause: null, system_metrics: null, code_location: null, session: null, error_details: null, metadata: null, tags: null, exception: null, network: null, console: null }, overrides);
 }
