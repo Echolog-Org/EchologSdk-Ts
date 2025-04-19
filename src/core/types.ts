@@ -327,4 +327,114 @@ export interface EchologOptions<T extends EventMetadata = EventMetadata> {
    * @default true
    */
   enableBreadcrumbs?: boolean;
+
+  /**
+   * Whether to enable auto-instrumentation for network requests and performance metrics.
+   * Optional, defaults to true.
+   * Maps to Option<bool> on the server.
+   * @default true
+   */
+  autoInstrument?: boolean;
+
+  /**
+   * Sampling rate for replay events, between 0.0 (none) and 1.0 (all).
+   * Optional, defaults to 1.0.
+   * Maps to Option<f32> on the server.
+   * @default 1.0
+   */
+  replaySampleRate?: number;
+
+  /**
+   * Whether to enable session replay capturing.
+   * Optional, defaults to false.
+   * Maps to Option<bool> on the server.
+   * @default false
+   */
+  enableReplay?: boolean;
+
+  /**
+   * Controls automatic session replay capturing.
+   * Optional, defaults to false (manual control).
+   * - 'onLoad': Starts replay automatically when the page loads.
+   * - 'onSessionStart': Starts replay automatically when a session begins.
+   * - false: Disables auto-replay; replays must be started manually with startReplay().
+   * Requires enableReplay to be true to take effect.
+   * Maps to Option<String> on the server (e.g., "onLoad", "onSessionStart", or None).
+   * @default false
+   */
+  autoReplay?: 'onLoad' | 'onSessionStart' | false | null;
+  //trackableElements
+  /**
+   * List of CSS selectors for elements to track.
+   * Optional, no default.
+   * Maps to Option<Vec<String>> on the server.
+   */
+  trackableElements: string[];
+}
+export interface Transaction<T extends EventMetadata = EventMetadata> extends LogEvent<T> {
+  name: string;       
+  op:  string | null; // Operation name (e.g., "http.request")
+  start_timestamp: string;   // ISO timestamp when the transaction started
+  end_timestamp?: string;    // ISO timestamp when the transaction ended
+  spans: Span<T>[];          // List of spans within this transaction
+}
+
+export interface Span<T extends EventMetadata = EventMetadata> {
+  span_id: string;           // Unique ID for the span
+  parent_span_id?: string | null;  // Parent span ID (optional)
+  description: string;
+  op: string | null;       // Description of the span (e.g., "DB query")
+  start_timestamp: string;   // When the span started
+  end_timestamp?: string;    // When the span ended (optional, if unfinished)
+  duration_ms?: number;      // Duration in milliseconds
+  metadata?: T;  
+              // Custom metadata
+}
+// src/core/types.ts
+
+/**
+ * Represents a replay event for capturing user interactions and UI state changes,
+ * designed to be standalone and separate from LogEvent.
+ * @template T - The type of metadata extending EventMetadata, defaults to EventMetadata.
+ */
+// ../core/types.ts
+// Define UserAction interface for clarity within ReplayEvent
+export interface UserAction {
+  action: string; // e.g., "click"
+  target: string; // e.g., "Submit Button"
+  timestamp: number; // Event timestamp in milliseconds
+  elementId?: string; // Optional element ID
+  elementClass?: string; // Optional CSS classes
+  elementRole?: string; // Optional ARIA role
+  metadata?: Record<string, any>; // Additional metadata (e.g., tagName, textContent)
+}
+
+export interface ReplayEvent<T extends EventMetadata = EventMetadata> {
+  id: string; // UUID as string
+  project_id: string; // UUID as string
+  session_id: string;
+  service_name: string;
+  timestamp: string; // ISO 8601 string (e.g., "2025-04-11T12:00:00Z")
+  events: string; // Base64-encoded compressed rrweb events
+  user_actions?: UserAction[]; // Array of semantic user actions
+  duration_ms: number; // Total duration in milliseconds from session start
+  batch_duration_ms: number; // Duration of this specific batch
+  is_final_batch: boolean; // Whether this is the final batch of the session
+  batch_index: number; // Index of this batch in the sequence
+  event_count: number; // Number of events in this batch
+  total_event_count: number; // Running total of events across all batches
+  metadata?: T; // Optional metadata
+  auto_replay?: 'onLoad' | 'onSessionStart' | null; // Matches TEXT column
+  created_at?: string; // ISO 8601 string, set by server
+}
+
+
+export interface EnhancedEventMetadata extends EventMetadata {
+  startTime?: number;
+  duration?: number;
+  memoryUsage?: number;
+  loadTime?: number;
+  firstPaint?: number;
+  fcp?: number;
+  lcp?: number;
 }

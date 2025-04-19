@@ -1,0 +1,30 @@
+import { EchologClient } from './client';
+import { SessionManager } from './SessionManager';
+import { EchologOptions, EnhancedEventMetadata } from '../core/types';
+import { EventSender } from './EventSender';
+export declare class ReplayManager<T extends EnhancedEventMetadata = EnhancedEventMetadata> {
+    private client;
+    private sessionManager;
+    private options;
+    private eventSender;
+    private replayEvents;
+    private userActions;
+    private isRecording;
+    private stopRecordingFn?;
+    private startTime?;
+    private totalEventCount;
+    private lastFlushTime?;
+    private flushInterval?;
+    private nodeMirror;
+    constructor(client: EchologClient<T>, sessionManager: SessionManager, options: EchologOptions<T>, eventSender: EventSender<T>);
+    startRecording(): void;
+    private handleNativeClick;
+    private processClickEvent;
+    private getElementDescription;
+    private truncateText;
+    stopRecording(): void;
+    flush(isFinalFlush?: boolean): void;
+    private handleBeforeUnload;
+    manualFlush(): void;
+    private getValidAutoReplay;
+}

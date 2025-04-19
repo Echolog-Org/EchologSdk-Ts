@@ -1,12 +1,9 @@
-// src/client/NetworkCapture.ts
-import { LogEvent, LogLevel, EchologOptions } from '../core/types';
-import { generateUniqueId, shouldCaptureRequest } from '../core/utilities/utility'; // Fixed the import path
+import { LogEvent, LogLevel, EchologOptions, EnhancedEventMetadata } from '../core/types';
+import { generateUniqueId, shouldCaptureRequest } from '../core/utilities/utility';
 import { EventManager } from './EventManager';
 import { SessionManager } from './SessionManager';
 
-/**
- * Extend the XMLHttpRequest interface to include our custom property
- */
+
 declare global {
   interface XMLHttpRequest {
     __echolog?: {
@@ -14,32 +11,39 @@ declare global {
       url: string;
       startTime: number;
       isInternalRequest?: boolean;
+      spanId?: string;
     };
   }
 }
 
-export class NetworkCapture {
-  private eventManager: EventManager<any>;
-  private sessionManager: SessionManager; // Add SessionManager as a property
-  private serviceName: string; // Add serviceName as a property
+export class NetworkCapture <T extends EnhancedEventMetadata = EnhancedEventMetadata> {
+  private eventManager: EventManager<T>;
+  private sessionManager: SessionManager;
+  private serviceName: string;
   private apiUrl: string;
-  private options: EchologOptions<any>;
+  private options: EchologOptions<T>;
   private xhrOpen?: XMLHttpRequest['open'];
   private xhrSend?: XMLHttpRequest['send'];
   private originalFetch?: typeof fetch;
+  private activePageLoadTraceId?: string;
 
   constructor(
-    eventManager: EventManager<any>,
+    eventManager: EventManager<T>,
     sessionManager: SessionManager,
-    serviceName: string, // Add serviceName to the constructor
+    serviceName: string,
     apiUrl: string,
-    options: EchologOptions<any>
+    options: EchologOptions<T>
   ) {
     this.eventManager = eventManager;
     this.sessionManager = sessionManager;
     this.serviceName = serviceName;
     this.apiUrl = apiUrl;
     this.options = options;
+    this.setupNetworkCapture();
+  }
+
+  public setActivePageLoadTraceId(traceId: string | undefined) {
+    this.activePageLoadTraceId = traceId;
   }
 
   public setupNetworkCapture(): void {
@@ -73,7 +77,7 @@ export class NetworkCapture {
       };
 
       if (arguments.length === 2) {
-        return that.xhrOpen!.call(this, method, url, false);
+        return that.xhrOpen!.call(this, method, url, async);
       } else if (arguments.length === 3) {
         return that.xhrOpen!.call(this, method, url, async);
       } else if (arguments.length === 4) {
@@ -84,32 +88,74 @@ export class NetworkCapture {
     };
 
     XMLHttpRequest.prototype.send = function (this: XMLHttpRequest, body?: any) {
+      // If __echolog is undefined, return the original send method immediately
       if (!this.__echolog) {
         return that.xhrSend!.apply(this, [body]);
       }
 
-      if (this.__echolog.isInternalRequest) {
+      // Now TypeScript knows this.__echolog is defined, but we’ll still use optional chaining for safety
+      if (this.__echolog.isInternalRequest || !shouldCaptureRequest(this.__echolog.url, that.apiUrl)) {
         return that.xhrSend!.apply(this, [body]);
       }
 
       this.__echolog.startTime = Date.now();
-      const handleLoadEnd = () => {
-        if (!shouldCaptureRequest(this.__echolog!.url, that.apiUrl)) return;
+      const startTime = this.__echolog.startTime;
 
-        const duration = Date.now() - this.__echolog!.startTime;
+      if (that.options.autoInstrument && that.activePageLoadTraceId) {
+        const spanId = that.eventManager['client'].startSpan(
+          that.activePageLoadTraceId,
+          `network: ${this.__echolog.method} ${this.__echolog.url}`,
+          undefined,
+          { method: this.__echolog.method, url: this.__echolog.url } as unknown as T,
+          {
+            description: `XHR request to ${this.__echolog.url}`,
+            op: 'http.client',
+            metadata: { method: this.__echolog.method, url: this.__echolog.url } as unknown as T,
+          }
+        );
+        if (spanId) {
+          this.__echolog.spanId = spanId;
+        }
+      }
+
+      const handleLoadEnd = () => {
+        // Guard against __echolog being undefined or modified externally
+        if (!this.__echolog) return;
+
+        const duration = Date.now() - startTime;
+        const status = this.status;
+
+        if (this.__echolog.spanId && that.activePageLoadTraceId) {
+          that.eventManager['client'].finishSpan(that.activePageLoadTraceId, this.__echolog.spanId);
+        }
+
+        const resource = performance.getEntriesByName(this.__echolog.url)[0] as PerformanceResourceTiming;
+        const metadata: EnhancedEventMetadata = {
+          method: this.__echolog.method,
+          url: this.__echolog.url,
+          status,
+          duration,
+          ...(resource
+            ? {
+                dns: resource.domainLookupEnd - resource.domainLookupStart,
+                tcp: resource.connectEnd - resource.connectStart,
+                request: resource.responseStart - resource.requestStart,
+                response: resource.responseEnd - resource.responseStart,
+              }
+            : {}),
+        };
+
         that.eventManager.captureEvent({
           id: generateUniqueId(),
           timestamp: new Date().toISOString(),
-          service_name: that.serviceName, // Use the serviceName property directly
-          level: this.status >= 400 ? LogLevel.ERROR : LogLevel.INFO,
-          message: `${this.__echolog!.method} ${this.__echolog!.url} - ${this.status}`,
+          service_name: that.serviceName,
+          level: status >= 400 ? LogLevel.ERROR : LogLevel.INFO,
+          message: `${this.__echolog.method} ${this.__echolog.url} - ${status}`,
           duration_ms: duration,
-          session: that.sessionManager.getSessionId() // Use sessionManager directly
-            ? {
-                id: that.sessionManager.getSessionId()!,
-                started_at: that.sessionManager.getSessionStartTime()!.toISOString(),
-              }
+          session: that.sessionManager.getSessionId()
+            ? { id: that.sessionManager.getSessionId()!, started_at: that.sessionManager.getSessionStartTime()!.toISOString() }
             : undefined,
+          metadata,
         });
       };
 
@@ -129,35 +175,76 @@ export class NetworkCapture {
       const method = (init?.method || 'GET').toUpperCase();
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
 
-      const isInternalRequest = url === that.apiUrl || url.includes(that.apiUrl);
-      if (isInternalRequest || !shouldCaptureRequest(url, that.apiUrl)) {
+      if (!shouldCaptureRequest(url, that.apiUrl)) {
         return that.originalFetch!.apply(this, [input, init]);
+      }
+
+      let spanId: string | undefined = undefined;
+      if (that.options.autoInstrument && that.activePageLoadTraceId) {
+        const tempSpanId = that.eventManager['client'].startSpan(
+          that.activePageLoadTraceId,
+          `network: ${method} ${url}`,
+          undefined,
+          { method, url } as unknown as T,
+          {
+            description: `Fetch request to ${url}`,
+            op: 'http.client',
+            metadata: { method, url } as unknown as T,
+          }
+        );
+        
+        if (tempSpanId) {
+          spanId = tempSpanId;
+        }
       }
 
       try {
         const response = await that.originalFetch!.apply(this, [input, init]);
         const duration = Date.now() - startTime;
+        const status = response.status;
+
+        if (spanId && that.activePageLoadTraceId) {
+          that.eventManager['client'].finishSpan(that.activePageLoadTraceId, spanId);
+        }
+
+        const resource = performance.getEntriesByName(url)[0] as PerformanceResourceTiming;
+        const metadata: EnhancedEventMetadata = {
+          method,
+          url,
+          status,
+          duration,
+          ...(resource
+            ? {
+                dns: resource.domainLookupEnd - resource.domainLookupStart,
+                tcp: resource.connectEnd - resource.connectStart,
+                request: resource.responseStart - resource.requestStart,
+                response: resource.responseEnd - resource.responseStart,
+              }
+            : {}),
+        };
 
         that.eventManager.captureEvent({
           id: generateUniqueId(),
           timestamp: new Date().toISOString(),
-          service_name: that.serviceName, // Use the serviceName property directly
-          level: response.status >= 400 ? LogLevel.ERROR : LogLevel.INFO,
-          message: `${method} ${url} - ${response.status}`,
+          service_name: that.serviceName,
+          level: status >= 400 ? LogLevel.ERROR : LogLevel.INFO,
+          message: `${method} ${url} - ${status}`,
           duration_ms: duration,
-          session: that.sessionManager.getSessionId() // Use sessionManager directly
-            ? {
-                id: that.sessionManager.getSessionId()!,
-                started_at: that.sessionManager.getSessionStartTime()!.toISOString(),
-              }
+          session: that.sessionManager.getSessionId()
+            ? { id: that.sessionManager.getSessionId()!, started_at: that.sessionManager.getSessionStartTime()!.toISOString() }
             : undefined,
+          metadata,
         });
 
         return response;
       } catch (error) {
+        const duration = Date.now() - startTime;
+        if (spanId && that.activePageLoadTraceId) {
+          that.eventManager['client'].finishSpan(that.activePageLoadTraceId, spanId);
+        }
         that.eventManager.captureException(error, {
           message: `Network error: ${method} ${url}`,
-          metadata: { url, method } as unknown as any,
+          metadata: { url, method, duration } as unknown as T,
         });
         throw error;
       }

@@ -274,4 +274,100 @@ export interface EchologOptions<T extends EventMetadata = EventMetadata> {
      * @default true
      */
     enableBreadcrumbs?: boolean;
+    /**
+     * Whether to enable auto-instrumentation for network requests and performance metrics.
+     * Optional, defaults to true.
+     * Maps to Option<bool> on the server.
+     * @default true
+     */
+    autoInstrument?: boolean;
+    /**
+     * Sampling rate for replay events, between 0.0 (none) and 1.0 (all).
+     * Optional, defaults to 1.0.
+     * Maps to Option<f32> on the server.
+     * @default 1.0
+     */
+    replaySampleRate?: number;
+    /**
+     * Whether to enable session replay capturing.
+     * Optional, defaults to false.
+     * Maps to Option<bool> on the server.
+     * @default false
+     */
+    enableReplay?: boolean;
+    /**
+     * Controls automatic session replay capturing.
+     * Optional, defaults to false (manual control).
+     * - 'onLoad': Starts replay automatically when the page loads.
+     * - 'onSessionStart': Starts replay automatically when a session begins.
+     * - false: Disables auto-replay; replays must be started manually with startReplay().
+     * Requires enableReplay to be true to take effect.
+     * Maps to Option<String> on the server (e.g., "onLoad", "onSessionStart", or None).
+     * @default false
+     */
+    autoReplay?: 'onLoad' | 'onSessionStart' | false | null;
+    /**
+     * List of CSS selectors for elements to track.
+     * Optional, no default.
+     * Maps to Option<Vec<String>> on the server.
+     */
+    trackableElements: string[];
+}
+export interface Transaction<T extends EventMetadata = EventMetadata> extends LogEvent<T> {
+    name: string;
+    op: string | null;
+    start_timestamp: string;
+    end_timestamp?: string;
+    spans: Span<T>[];
+}
+export interface Span<T extends EventMetadata = EventMetadata> {
+    span_id: string;
+    parent_span_id?: string | null;
+    description: string;
+    op: string | null;
+    start_timestamp: string;
+    end_timestamp?: string;
+    duration_ms?: number;
+    metadata?: T;
+}
+/**
+ * Represents a replay event for capturing user interactions and UI state changes,
+ * designed to be standalone and separate from LogEvent.
+ * @template T - The type of metadata extending EventMetadata, defaults to EventMetadata.
+ */
+export interface UserAction {
+    action: string;
+    target: string;
+    timestamp: number;
+    elementId?: string;
+    elementClass?: string;
+    elementRole?: string;
+    metadata?: Record<string, any>;
+}
+export interface ReplayEvent<T extends EventMetadata = EventMetadata> {
+    id: string;
+    project_id: string;
+    session_id: string;
+    service_name: string;
+    timestamp: string;
+    events: string;
+    user_actions?: UserAction[];
+    duration_ms: number;
+    batch_duration_ms: number;
+    is_final_batch: boolean;
+    batch_index: number;
+    event_count: number;
+    total_event_count: number;
+    metadata?: T;
+    auto_replay?: 'onLoad' | 'onSessionStart' | null;
+    created_at?: string;
+}
+export interface EnhancedEventMetadata extends EventMetadata {
+    startTime?: number;
+    duration?: number;
+    memoryUsage?: number;
+    loadTime?: number;
+    firstPaint?: number;
+    fcp?: number;
+    lcp?: number;
 }

@@ -20,6 +20,7 @@ let echologClient = null;
  * @returns Initialized EchologClient instance
  */
 function initEchoLog(options) {
+    var _a;
     if (echologClient) {
         return echologClient;
     }
@@ -36,6 +37,7 @@ function initEchoLog(options) {
         debug: false,
         maxRetries: 3,
         includeBrowserMetadata: true,
+        trackableElements: [],
         beforeSend: (event) => {
             var _a;
             if (typeof window !== 'undefined') {
@@ -49,7 +51,7 @@ function initEchoLog(options) {
      * and store it in the global variable
      * @type {EchologClient<ReactErrorMetadata>}
      */
-    echologClient = new client_1.EchologClient(Object.assign(Object.assign(Object.assign({}, defaultOptions), options), { apiKey: options.apiKey, serviceName: options.serviceName || defaultOptions.serviceName || 'react-app' }));
+    echologClient = new client_1.EchologClient(Object.assign(Object.assign(Object.assign({}, defaultOptions), options), { apiKey: options.apiKey, serviceName: options.serviceName || defaultOptions.serviceName || 'react-app', autoReplay: (_a = options.autoReplay) !== null && _a !== void 0 ? _a : false }));
     echologClient.startSession();
     return echologClient;
 }

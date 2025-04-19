@@ -51,11 +51,26 @@ class SessionManager {
         this.sessionStartTime = undefined;
         (_b = this.eventManager) === null || _b === void 0 ? void 0 : _b.flush(true);
     }
+    //setUser
     getSessionId() {
         return this.sessionId;
     }
     getSessionStartTime() {
         return this.sessionStartTime;
+    }
+    //get session object
+    getSession() {
+        if (!this.sessionId || !this.sessionStartTime) {
+            return undefined;
+        }
+        return {
+            id: this.sessionId,
+            started_at: this.sessionStartTime.toISOString(),
+            duration: new Date().getTime() - this.sessionStartTime.getTime(),
+        };
+    }
+    setUser(userData) {
+        this.userData = userData;
     }
 }
 exports.SessionManager = SessionManager;

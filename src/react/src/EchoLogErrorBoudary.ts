@@ -38,6 +38,7 @@ interface ReactComponentInfo {
       debug: false, 
       maxRetries: 3, 
       includeBrowserMetadata: true,
+      trackableElements: [],
       beforeSend: (event) => {
         if (typeof window !== 'undefined') {
           event.metadata = {
@@ -61,6 +62,7 @@ interface ReactComponentInfo {
       ...options,
       apiKey: options.apiKey,
       serviceName: options.serviceName || defaultOptions.serviceName || 'react-app',
+      autoReplay: options.autoReplay ?? false,
     });
   
     echologClient.startSession();

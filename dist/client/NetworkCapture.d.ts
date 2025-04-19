@@ -1,9 +1,6 @@
-import { EchologOptions } from '../core/types';
+import { EchologOptions, EnhancedEventMetadata } from '../core/types';
 import { EventManager } from './EventManager';
 import { SessionManager } from './SessionManager';
-/**
- * Extend the XMLHttpRequest interface to include our custom property
- */
 declare global {
     interface XMLHttpRequest {
         __echolog?: {
@@ -11,10 +8,11 @@ declare global {
             url: string;
             startTime: number;
             isInternalRequest?: boolean;
+            spanId?: string;
         };
     }
 }
-export declare class NetworkCapture {
+export declare class NetworkCapture<T extends EnhancedEventMetadata = EnhancedEventMetadata> {
     private eventManager;
     private sessionManager;
     private serviceName;
@@ -23,8 +21,9 @@ export declare class NetworkCapture {
     private xhrOpen?;
     private xhrSend?;
     private originalFetch?;
-    constructor(eventManager: EventManager<any>, sessionManager: SessionManager, serviceName: string, // Add serviceName to the constructor
-    apiUrl: string, options: EchologOptions<any>);
+    private activePageLoadTraceId?;
+    constructor(eventManager: EventManager<T>, sessionManager: SessionManager, serviceName: string, apiUrl: string, options: EchologOptions<T>);
+    setActivePageLoadTraceId(traceId: string | undefined): void;
     setupNetworkCapture(): void;
     private interceptXHR;
     private interceptFetch;

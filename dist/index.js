@@ -20,10 +20,14 @@ exports.initEcholog = initEcholog;
 // src/index.ts
 const client_1 = require("./client/client");
 function initEcholog(options) {
-    const client = new client_1.EchologClient(options);
+    const client = new client_1.EchologClient(sanitizeOptions(options));
     const globalObj = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : {};
     globalObj.echolog = client;
     return client;
+}
+function sanitizeOptions(options) {
+    var _a;
+    return Object.assign(Object.assign({}, options), { autoReplay: (_a = options.autoReplay) !== null && _a !== void 0 ? _a : false });
 }
 __exportStar(require("./client/client"), exports);
 var types_1 = require("./core/types");

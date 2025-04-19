@@ -10,17 +10,19 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NetworkCapture = void 0;
-// src/client/NetworkCapture.ts
 const types_1 = require("../core/types");
-const utility_1 = require("../core/utilities/utility"); // Fixed the import path
+const utility_1 = require("../core/utilities/utility");
 class NetworkCapture {
-    constructor(eventManager, sessionManager, serviceName, // Add serviceName to the constructor
-    apiUrl, options) {
+    constructor(eventManager, sessionManager, serviceName, apiUrl, options) {
         this.eventManager = eventManager;
         this.sessionManager = sessionManager;
         this.serviceName = serviceName;
         this.apiUrl = apiUrl;
         this.options = options;
+        this.setupNetworkCapture();
+    }
+    setActivePageLoadTraceId(traceId) {
+        this.activePageLoadTraceId = traceId;
     }
     setupNetworkCapture() {
         this.interceptXHR();
@@ -42,7 +44,7 @@ class NetworkCapture {
                 isInternalRequest,
             };
             if (arguments.length === 2) {
-                return that.xhrOpen.call(this, method, url, false);
+                return that.xhrOpen.call(this, method, url, async);
             }
             else if (arguments.length === 3) {
                 return that.xhrOpen.call(this, method, url, async);
@@ -55,30 +57,56 @@ class NetworkCapture {
             }
         };
         XMLHttpRequest.prototype.send = function (body) {
+            // If __echolog is undefined, return the original send method immediately
             if (!this.__echolog) {
                 return that.xhrSend.apply(this, [body]);
             }
-            if (this.__echolog.isInternalRequest) {
+            // Now TypeScript knows this.__echolog is defined, but we’ll still use optional chaining for safety
+            if (this.__echolog.isInternalRequest || !(0, utility_1.shouldCaptureRequest)(this.__echolog.url, that.apiUrl)) {
                 return that.xhrSend.apply(this, [body]);
             }
             this.__echolog.startTime = Date.now();
+            const startTime = this.__echolog.startTime;
+            if (that.options.autoInstrument && that.activePageLoadTraceId) {
+                const spanId = that.eventManager['client'].startSpan(that.activePageLoadTraceId, `network: ${this.__echolog.method} ${this.__echolog.url}`, undefined, { method: this.__echolog.method, url: this.__echolog.url }, {
+                    description: `XHR request to ${this.__echolog.url}`,
+                    op: 'http.client',
+                    metadata: { method: this.__echolog.method, url: this.__echolog.url },
+                });
+                if (spanId) {
+                    this.__echolog.spanId = spanId;
+                }
+            }
             const handleLoadEnd = () => {
-                if (!(0, utility_1.shouldCaptureRequest)(this.__echolog.url, that.apiUrl))
+                // Guard against __echolog being undefined or modified externally
+                if (!this.__echolog)
                     return;
-                const duration = Date.now() - this.__echolog.startTime;
+                const duration = Date.now() - startTime;
+                const status = this.status;
+                if (this.__echolog.spanId && that.activePageLoadTraceId) {
+                    that.eventManager['client'].finishSpan(that.activePageLoadTraceId, this.__echolog.spanId);
+                }
+                const resource = performance.getEntriesByName(this.__echolog.url)[0];
+                const metadata = Object.assign({ method: this.__echolog.method, url: this.__echolog.url, status,
+                    duration }, (resource
+                    ? {
+                        dns: resource.domainLookupEnd - resource.domainLookupStart,
+                        tcp: resource.connectEnd - resource.connectStart,
+                        request: resource.responseStart - resource.requestStart,
+                        response: resource.responseEnd - resource.responseStart,
+                    }
+                    : {}));
                 that.eventManager.captureEvent({
                     id: (0, utility_1.generateUniqueId)(),
                     timestamp: new Date().toISOString(),
-                    service_name: that.serviceName, // Use the serviceName property directly
-                    level: this.status >= 400 ? types_1.LogLevel.ERROR : types_1.LogLevel.INFO,
-                    message: `${this.__echolog.method} ${this.__echolog.url} - ${this.status}`,
+                    service_name: that.serviceName,
+                    level: status >= 400 ? types_1.LogLevel.ERROR : types_1.LogLevel.INFO,
+                    message: `${this.__echolog.method} ${this.__echolog.url} - ${status}`,
                     duration_ms: duration,
-                    session: that.sessionManager.getSessionId() // Use sessionManager directly
-                        ? {
-                            id: that.sessionManager.getSessionId(),
-                            started_at: that.sessionManager.getSessionStartTime().toISOString(),
-                        }
+                    session: that.sessionManager.getSessionId()
+                        ? { id: that.sessionManager.getSessionId(), started_at: that.sessionManager.getSessionStartTime().toISOString() }
                         : undefined,
+                    metadata,
                 });
             };
             this.addEventListener('loadend', handleLoadEnd);
@@ -95,33 +123,61 @@ class NetworkCapture {
                 const startTime = Date.now();
                 const method = ((init === null || init === void 0 ? void 0 : init.method) || 'GET').toUpperCase();
                 const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-                const isInternalRequest = url === that.apiUrl || url.includes(that.apiUrl);
-                if (isInternalRequest || !(0, utility_1.shouldCaptureRequest)(url, that.apiUrl)) {
+                if (!(0, utility_1.shouldCaptureRequest)(url, that.apiUrl)) {
                     return that.originalFetch.apply(this, [input, init]);
+                }
+                let spanId = undefined;
+                if (that.options.autoInstrument && that.activePageLoadTraceId) {
+                    const tempSpanId = that.eventManager['client'].startSpan(that.activePageLoadTraceId, `network: ${method} ${url}`, undefined, { method, url }, {
+                        description: `Fetch request to ${url}`,
+                        op: 'http.client',
+                        metadata: { method, url },
+                    });
+                    if (tempSpanId) {
+                        spanId = tempSpanId;
+                    }
                 }
                 try {
                     const response = yield that.originalFetch.apply(this, [input, init]);
                     const duration = Date.now() - startTime;
+                    const status = response.status;
+                    if (spanId && that.activePageLoadTraceId) {
+                        that.eventManager['client'].finishSpan(that.activePageLoadTraceId, spanId);
+                    }
+                    const resource = performance.getEntriesByName(url)[0];
+                    const metadata = Object.assign({ method,
+                        url,
+                        status,
+                        duration }, (resource
+                        ? {
+                            dns: resource.domainLookupEnd - resource.domainLookupStart,
+                            tcp: resource.connectEnd - resource.connectStart,
+                            request: resource.responseStart - resource.requestStart,
+                            response: resource.responseEnd - resource.responseStart,
+                        }
+                        : {}));
                     that.eventManager.captureEvent({
                         id: (0, utility_1.generateUniqueId)(),
                         timestamp: new Date().toISOString(),
-                        service_name: that.serviceName, // Use the serviceName property directly
-                        level: response.status >= 400 ? types_1.LogLevel.ERROR : types_1.LogLevel.INFO,
-                        message: `${method} ${url} - ${response.status}`,
+                        service_name: that.serviceName,
+                        level: status >= 400 ? types_1.LogLevel.ERROR : types_1.LogLevel.INFO,
+                        message: `${method} ${url} - ${status}`,
                         duration_ms: duration,
-                        session: that.sessionManager.getSessionId() // Use sessionManager directly
-                            ? {
-                                id: that.sessionManager.getSessionId(),
-                                started_at: that.sessionManager.getSessionStartTime().toISOString(),
-                            }
+                        session: that.sessionManager.getSessionId()
+                            ? { id: that.sessionManager.getSessionId(), started_at: that.sessionManager.getSessionStartTime().toISOString() }
                             : undefined,
+                        metadata,
                     });
                     return response;
                 }
                 catch (error) {
+                    const duration = Date.now() - startTime;
+                    if (spanId && that.activePageLoadTraceId) {
+                        that.eventManager['client'].finishSpan(that.activePageLoadTraceId, spanId);
+                    }
                     that.eventManager.captureException(error, {
                         message: `Network error: ${method} ${url}`,
-                        metadata: { url, method },
+                        metadata: { url, method, duration },
                     });
                     throw error;
                 }

@@ -1,5 +1,5 @@
 // src/client/SessionManager.ts
-import { LogEvent, LogLevel } from '../core/types';
+import { LogEvent, LogLevel, Session, UserData } from '../core/types';
 import { generateUniqueId } from '../core/utilities/utility';
 import { EventManager } from './EventManager';
 
@@ -8,6 +8,7 @@ export class SessionManager {
   private serviceName: string;
   private sessionId?: string;
   private sessionStartTime?: Date;
+  private userData?: UserData;
 
   constructor(serviceName: string) {
     this.serviceName = serviceName;
@@ -55,11 +56,14 @@ export class SessionManager {
         duration: sessionDuration,
       },
     });
+    
 
     this.sessionId = undefined;
     this.sessionStartTime = undefined;
     this.eventManager?.flush(true);
   }
+  //setUser
+
 
   public getSessionId(): string | undefined {
     return this.sessionId;
@@ -67,5 +71,19 @@ export class SessionManager {
 
   public getSessionStartTime(): Date | undefined {
     return this.sessionStartTime;
+  }
+  //get session object
+  public getSession(): Session | undefined {
+    if (!this.sessionId || !this.sessionStartTime) {
+      return undefined;
+    }
+    return {
+      id: this.sessionId,
+      started_at: this.sessionStartTime.toISOString(),
+      duration: new Date().getTime() - this.sessionStartTime.getTime(),
+    };
+  }
+  public setUser(userData: UserData): void {
+    this.userData = userData;
   }
 }
